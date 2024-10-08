@@ -24,6 +24,7 @@ export default function Home() {
   const [showExamSimulationDialog, setShowExamSimulationDialog] = useState(false);
   const [customTime, setCustomTime] = useState<number | null>(null);
   const [customTimeUnit, setCustomTimeUnit] = useState<'hours' | 'minutes' | 'seconds'>('hours');
+  const [isStartingTest, setIsStartingTest] = useState(false);
 
   const questionOptions = [25, 50, 75];
   const timeOptions = [1, 2, 3, 4]; // Hours
@@ -48,6 +49,7 @@ export default function Home() {
   }, []);
 
   const startTest = (isExamSimulation = false) => {
+    setIsStartingTest(true);
     let testConfig = {
       userId: (session.data?.user as any)?.id,
       isTimed: isTimedTest !== null ? isTimedTest : true,
@@ -83,8 +85,10 @@ export default function Home() {
       })
       .catch(error => {
         console.error("Error creating test:", error);
+        // Optionally show an error message to the user
       })
       .finally(() => {
+        setIsStartingTest(false);
         // Reset state
         setShowTimerDialog(false);
         setShowTimeSettingDialog(false);
@@ -319,13 +323,23 @@ export default function Home() {
                 startTest(true); // Pass true to indicate it's an exam simulation
               }}
               className={`mt-8 w-full px-4 py-3 rounded-md transition duration-200 ease-in-out ${
-                selectedCategory
+                selectedCategory && !isStartingTest
                   ? "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                   : "bg-blue-200 text-blue-400 dark:bg-blue-300 dark:text-blue-500 cursor-not-allowed"
               }`}
-              disabled={!selectedCategory}
+              disabled={!selectedCategory || isStartingTest}
             >
-              Start Exam Simulation
+              {isStartingTest ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Starting Exam Simulation...
+                </span>
+              ) : (
+                "Start Exam Simulation"
+              )}
             </button>
           </div>
         </div>
@@ -604,13 +618,23 @@ export default function Home() {
                 }
               }}
               className={`mt-8 w-full px-4 py-3 rounded-md transition duration-200 ease-in-out ${
-                isTimedTest !== null
+                isTimedTest !== null && !isStartingTest
                   ? "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                   : "bg-blue-200 text-blue-400 dark:bg-blue-300 dark:text-blue-500 cursor-not-allowed"
               }`}
-              disabled={isTimedTest === null}
+              disabled={isTimedTest === null || isStartingTest}
             >
-              Next
+              {isStartingTest ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Starting Test...
+                </span>
+              ) : (
+                "Next"
+              )}
             </button>
           </div>
         </div>
@@ -684,15 +708,25 @@ export default function Home() {
               </select>
             </div>
             <button
-              onClick={() => startTest(false)}
-              className={`mt-8 w-full px-4 py-3 rounded-md transition duration-200 ease-in-out ${
-                testDuration
-                  ? "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
-                  : "bg-blue-200 text-blue-400 dark:bg-blue-300 dark:text-blue-500 cursor-not-allowed"
-              }`}
-              disabled={!testDuration}
-            >
-              Start Test
+            onClick={() => startTest(false)}
+            className={`mt-8 w-full px-4 py-3 rounded-md transition duration-200 ease-in-out ${
+              testDuration && !isStartingTest
+                ? "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+                : "bg-blue-200 text-blue-400 dark:bg-blue-300 dark:text-blue-500 cursor-not-allowed"
+            }`}
+            disabled={!testDuration || isStartingTest}
+          >
+            {isStartingTest ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Starting Test...
+              </span>
+            ) : (
+              "Start Test"
+              )}
             </button>
           </div>
         </div>
