@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import { useTheme } from "@/components/context/ThemeContext";
 import TestResults from "@/src/components/TestResults/page";
@@ -29,10 +29,22 @@ export default function TestPage() {
   const questionCount = parseInt(searchParams.get("questionCount") || "20", 10);
   const [isTimed, setIsTimed] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedIndex = localStorage.getItem(`testProgress_${params.testId}_currentIndex`);
+      return savedIndex ? parseInt(savedIndex, 10) : 0;
+    }
+    return 0;
+  });
   const [selectedAnswers, setSelectedAnswers] = useState<{
     [key: string]: string[];
-  }>({});
+  }>(() => {
+    if (typeof window !== 'undefined') {
+      const savedAnswers = localStorage.getItem(`testProgress_${params.testId}_answers`);
+      return savedAnswers ? JSON.parse(savedAnswers) : {};
+    }
+    return {};
+  });
   const selectedAnswersRef = useRef<{ [key: string]: string[] }>({});
   const [duration, setDuration] = useState(0);
   const [showDialog, setShowDialog] = useState(false);
@@ -40,13 +52,28 @@ export default function TestPage() {
   const [showResults, setShowResults] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   // Update the ref whenever selectedAnswers changes
   useEffect(() => {
     selectedAnswersRef.current = selectedAnswers;
   }, [selectedAnswers]);
 
+  const saveProgress = useCallback(() => {
+    localStorage.setItem(`testProgress_${params.testId}_currentIndex`, currentQuestionIndex.toString());
+    localStorage.setItem(`testProgress_${params.testId}_answers`, JSON.stringify(selectedAnswers));
+  }, [currentQuestionIndex, selectedAnswers, params.testId]);
+
+  useEffect(() => {
+    saveProgress();
+  }, [currentQuestionIndex, selectedAnswers, saveProgress]);
+
   const handleSubmit = async (forcedSubmit = false) => {
+    if (!forcedSubmit) {
+      setShowConfirmDialog(true);
+      return;
+    }
+
     try {
       // Use the ref to get the latest answers
       const currentSelectedAnswers = selectedAnswersRef.current;
@@ -73,10 +100,23 @@ export default function TestPage() {
         console.log("Test submitted successfully:", data.data);
         setTestResult(data.data);
         setShowDialog(true);
+        
+        // Remove test progress from local storage
+        localStorage.removeItem(`testProgress_${params.testId}_currentIndex`);
+        localStorage.removeItem(`testProgress_${params.testId}_answers`);
       }
     } catch (error) {
       console.error("Failed to submit test:", error);
     }
+  };
+
+  const confirmSubmit = () => {
+    setShowConfirmDialog(false);
+    handleSubmit(true);
+  };
+
+  const cancelSubmit = () => {
+    setShowConfirmDialog(false);
   };
 
   useEffect(() => {
@@ -153,7 +193,7 @@ export default function TestPage() {
         ? currentAnswers.filter((id) => id !== answerId)
         : [...currentAnswers, answerId];
       const newState = { ...prev, [questionId]: updatedAnswers };
-      selectedAnswersRef.current = newState; // Update the ref
+      selectedAnswersRef.current = newState;
       return newState;
     });
   };
@@ -218,6 +258,10 @@ export default function TestPage() {
         error: 'Failed to load results',
       }
     );
+
+    // Remove test progress from local storage
+    localStorage.removeItem(`testProgress_${params.testId}_currentIndex`);
+    localStorage.removeItem(`testProgress_${params.testId}_answers`);
   };
 
   if (questions.length === 0) {
@@ -236,7 +280,7 @@ export default function TestPage() {
         </h1>
         <button
           className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors duration-200"
-          onClick={(e) => handleSubmit()}
+          onClick={() => handleSubmit()}
         >
           Complete Test
         </button>
@@ -333,6 +377,29 @@ export default function TestPage() {
                 className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 cursor-pointer font-medium"
               >
                 View Results
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h2 className="text-2xl font-bold mb-4">Confirm Submission</h2>
+            <p className="mb-4">Are you sure you want to submit the test?</p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={cancelSubmit}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors duration-200"
+              >
+                No, continue test
+              </button>
+              <button
+                onClick={confirmSubmit}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200"
+              >
+                Yes, submit test
               </button>
             </div>
           </div>
