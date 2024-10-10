@@ -53,6 +53,7 @@ export default function TestPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Update the ref whenever selectedAnswers changes
   useEffect(() => {
@@ -74,14 +75,16 @@ export default function TestPage() {
       return;
     }
 
-    try {
+    setShowConfirmDialog(false);
+    setIsSubmitting(true);
+
+    const submitPromise = async () => {
       // Use the ref to get the latest answers
       const currentSelectedAnswers = selectedAnswersRef.current;
       
       const answersToSubmit = questions.map(question => 
         currentSelectedAnswers[question.id] || []
       );
-      console.log("userAnswers", answersToSubmit);
 
       const response = await fetch(`/api/test/${params.testId}`, {
         method: 'POST',
@@ -93,21 +96,31 @@ export default function TestPage() {
         }),
       });
       const data = await response.json();
-      console.log(data);
       if (data.err) {
-        console.error(data.msg);
-      } else {
-        console.log("Test submitted successfully:", data.data);
-        setTestResult(data.data);
+        throw new Error(data.msg);
+      }
+      return data.data;
+    };
+
+    toast.promise(submitPromise, {
+      loading: 'Submitting test...',
+      success: (data) => {
+        setTestResult(data);
         setShowDialog(true);
+        setIsSubmitting(false);
         
         // Remove test progress from local storage
         localStorage.removeItem(`testProgress_${params.testId}_currentIndex`);
         localStorage.removeItem(`testProgress_${params.testId}_answers`);
-      }
-    } catch (error) {
-      console.error("Failed to submit test:", error);
-    }
+        
+        return 'Test submitted successfully!';
+      },
+      error: (err) => {
+        console.error("Failed to submit test:", err);
+        setIsSubmitting(false);
+        return 'Failed to submit test. Please try again.';
+      },
+    });
   };
 
   const confirmSubmit = () => {
@@ -392,16 +405,27 @@ export default function TestPage() {
               <button
                 onClick={cancelSubmit}
                 className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors duration-200"
+                disabled={isSubmitting}
               >
                 No, continue test
               </button>
               <button
-                onClick={confirmSubmit}
+                onClick={() => handleSubmit(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200"
+                disabled={isSubmitting}
               >
-                Yes, submit test
+                {isSubmitting ? 'Submitting...' : 'Yes, submit test'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isSubmitting && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col items-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+            <p className="mt-4 text-lg font-semibold">Submitting test...</p>
           </div>
         </div>
       )}
